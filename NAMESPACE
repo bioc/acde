@@ -1,0 +1,12 @@
+# Namespace for package acde
+
+## Imports
+import(boot)
+
+## Exports
+export(stp,tc,ac,ac2,fdr,bcaFDR,qval)
+S3method(print,STP)
+S3method(plot,STP)
+S3method(print,TC)
+S3method(plot,TC)
+S3method(summary,TC)

@@ -1,0 +1,1430 @@
+\documentclass[nojss]{jss}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% declarations for jss.cls %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{amsmath}
+\usepackage{multirow}
+
+%% almost as usual
+\author{Juan Pablo Acosta \\ Universidad Nacional de Colombia 
+    \And Liliana L\'opez-Kleine \\ Universidad Nacional de Colombia}
+\title{Identification of Differentially Expressed Genes with 
+    Artificial Components -- the \pkg{acde} Package}
+
+%% for pretty printing and a nice hypersummary also set:
+\Plainauthor{Juan Pablo Acosta, Liliana L\'opez-Kleine}
+\Plaintitle{Identification of Differentially Expressed Genes with 
+    Artificial Components -- the `acde' Package}
+\Shorttitle{The `acde' Package} %% a short title (if necessary)
+
+%% an abstract and keywords
+\Abstract{
+Microarrays and RNA Sequencing have become the most important tools in 
+understanding genetic expression in  biological processes. With measurments 
+of thousands of genes' expression levels across several conditions, 
+identification of differentially expressed genes will necessarily involve 
+data mining or large scale multiple testing procedures. To the date, 
+advances in this regard have either been multivariate but descriptive, or 
+inferential but univariate.
+
+In this work, we present a new multivariate inferential method for detecting 
+differentially expressed genes in gene expression data implemented in the 
+\pkg{acde} package for \proglang{R} \citep{R}. It estimates the FDR 
+using artificial components close to the data's principal components, but 
+with an exact interpretation in terms of differential genetic expression. 
+Our method works best under the most common gene expression data structure 
+and gives way to a new understanding of genetic differential expression. We 
+present the main features of the \pkg{acde} package and illustrate its 
+functionality on a publicly available data set.
+}
+\Keywords{differential expression, false discovery rate, principal 
+    components analysis, multiple hypothesis tests}
+%% without formatting
+%% at least one keyword must be supplied
+
+%% publication information
+%% NOTE: Typically, this can be left commented and will be filled out by
+%% the technical editor
+%% \Volume{50}
+%% \Issue{9}
+%% \Month{June}
+%% \Year{2012}
+%% \Submitdate{2012-06-04}
+%% \Acceptdate{2012-06-04}
+
+%% The address of (at least) one author should be given
+%% in the following format:
+\Address{
+    Liliana L\'opez-Kleine\\
+    Department of Statistics\\
+    Faculty of Sciences\\
+    Universidad Nacional de Colombia\\
+    111321 Bogot\'a, Colombia\\
+    E-mail: \email{llopezk@unal.edu.co}\\
+    URL: \url{http://www.docentes.unal.edu.co/llopezk/}
+}
+%% It is also possible to add a telephone and fax number
+%% before the e-mail in the following format:
+%% Telephone: +43/512/507-7103
+%% Fax: +43/512/507-2851
+
+%% for those who use Sweave please include the following line (with % 
+%% symbols):
+%% need no \usepackage{Sweave.sty}
+%%\VignetteIndexEntry{Identification of Differentially Expressed Genes with Artificial Components}
+%%\VignettePackage{acde}
+
+%% end of declarations %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\section*{Contents}
+\begin{center}
+\begin{tabular}{p{12cm}r} \hline
+\ref{Sec_1}.~Introduction & \pageref{Sec_1} \\
+\ref{Sec_2}.~Materials and Methods & \pageref{Sec_2} \\
+$\quad$\ref{Sec_2.1}.~Artificial components for differential 
+expression & \pageref{Sec_2.1} \\
+$\quad$\ref{Sec_2.2}.~A word on scale  & \pageref{Sec_2.2} \\
+$\quad$\ref{Sec_2.3}.~Multiple hypothesis testing & 
+\pageref{Sec_2.3} \\
+$\quad$\ref{Sec_2.4}.~Single time point analysis & 
+\pageref{Sec_2.4} \\
+$\quad$\ref{Sec_2.5}.~Time course analysis & \pageref{Sec_2.5} \\
+$\quad$\ref{Sec_2.6}.~Data -- \emph{Phytophthora infestans} & 
+\pageref{Sec_2.6} \\
+\ref{Sec_3}.~An \proglang{R} session with \pkg{acde}: detecting 
+differentially expressed genes & \pageref{Sec_3} \\
+$\quad$\ref{Sec_3.1}.~Single time point analysis -- function \code{stp} & 
+\pageref{Sec_3.1} \\
+$\quad$\ref{Sec_3.2}.~Time course analysis -- function \code{tc} & 
+\pageref{Sec_3.2} \\
+$\quad$\ref{Sec_3.3}.~Comparison with other methods & 
+\pageref{Sec_3.3} \\
+\ref{Sec_4}.~Conclusions & \pageref{Sec_4} \\
+\ref{Sec_5}.~Session Info & \pageref{Sec_5} \\
+References & \pageref{Sec_Ref} \\
+\end{tabular}
+\begin{tabular}{p{12cm}r}
+\ref{Ap}.~Appendix: Technical details in \pkg{acde} & \pageref{Ap} \\
+$\quad$\ref{Ap_1}.~Other functions in \pkg{acde} & \pageref{Ap_1} \\
+$\quad$\ref{Ap_2}.~Parallel computation & \pageref{Ap_2} \\
+$\quad$\ref{Ap_3}.~Construction of this vignette & \pageref{Ap_3} \\
+$\quad$\ref{Ap_4}.~Future perspectives & \pageref{Ap_4} \\
+\hline \end{tabular}
+\end{center}
+
+\section{Introduction}\label{Sec_1}
+Microarrays and RNA Sequencing have become the most important tools in 
+understanding genetic expression in  biological processes \citep{yuan2006a}. 
+Since their development, an enormous amount of data has become available and 
+new statistical methods are needed to cope with its particular nature and to 
+approach genomic problems in a sound statistical manner \citep{simon2003}.
+
+With measurements of thousands of genes' expression levels across several 
+conditions, statistical analysis of a microarray experiment necessarily 
+involves data mining or large scale multiple testing procedures. To the date, 
+advances in this regard have either been multivariate but descriptive 
+\citep{alizadeh2000,ross2000,landgrebe2002,jombart2010}, or inferential but 
+univariate 
+(\citealp{kerr2000,yuan2006a,benjamini2001,dudoit2002,tusher2001}; 
+\citealp{storey2001,taylor2005})\footnote{Recently, \citet{xiong2014} 
+developed a method for testing gene differential expression that represents 
+the expression profile of a gene by a functional curve based in a Functional 
+Principal Components (FPC) space and tests by comparing FPC coefficients 
+between two groups of samples. However, being based on functional 
+statistics, this method requires a very high number of replicates.}.
+
+As a result, multivariate--descriptive and univariate--inferential methods 
+are the two pieces still to be assembled into an integral strategy for the 
+identification of differentially expressed genes in gene expression data.
+
+In this document we present a new strategy that combines a gene-by-gene 
+multiple testing procedure and a multivariate descriptive approach into a 
+multivariate inferential method suitable for gene expression data. It is 
+based mainly on the work of \citet{storey2001,storey2003b} for the 
+estimation of the FDR 
+and on the construction of two artificial components --close to the data's 
+principal components, but with an exact interpretation in terms of overall 
+and differential genetic expression. 
+Although it was concieved as a tool for analysing microarray data, this 
+strategy can be applied to other gene expression data such as RNA sequencing 
+because no assumptions on variable distributions are required 
+\citep{xiong2014}. 
+
+The remainder of this work is organized as follows. In Section 2, 
+we introduce the construction of artificial components related to genetic 
+expression, we give a brief overview of multiple hypothesis tests and false 
+discovery rates, and we present our strategy for the identification of 
+differentially expressed genes. Also, towards the end of Chapter 2, we 
+introduce the \code{phytophthora} data set \citep{restrepo2005}, 
+included in the package. In Section 3, we present the main functionalities 
+of \pkg{acde} and illustrate step by step on the \code{phytophthora} data 
+set. In Section 4 we present the conclusions of our analysis. Finally, 
+we adress some technical aspects of the package in the Appendix.
+
+\section{Materials and Methods}\label{Sec_2}
+In this section, we present the theoretical baseis of our strategy for 
+identifying differentially expressed genes in gene expression data. We 
+begin by introducing the multivariate piece of the puzzle: artificial 
+components. We follow with a brief overview of multiple hypothesis tests, 
+define the false discovery rate (FDR) according to \citet{benjamini1995}, 
+and provide the inferential piece of the puzzle with \citet{storey2001}'s 
+procedure for estimating the FDR. Putting these two pieces together, we 
+get the single time point analysis from which derives most of 
+\pkg{acde}'s functionality.
+
+In this section, we also discuss the biological and technical assumptions 
+required for our method to work, we provide additional assessments both 
+for the FDR control achieved and for the validity of these 
+assumptions, and we extend the single time point analysis for time course 
+experiments. We end this section presenting the \code{phytophthora} data 
+set (included in \pkg{acde}) from \citet{restrepo2005}.
+
+\subsection{Artificial components for differential 
+expression}\label{Sec_2.1}
+Let $Z$ represent a $n\times p$ matrix where the rows correspond to the 
+genes and the columns to the replicates in a gene expression data set. Also, 
+let $\mathcal{C}$ be the columns and $\mathcal{G}$ be the rows of $Z$, genes 
+in $\mathcal{G}$ being treated as the individuals of the analysis. We first 
+standardize $Z$ with respect to its column's means and variances for 
+obtaining a new matrix $X$ suitable for a Principal Components Analysis 
+(PCA) as follows:
+\begin{equation*}
+    x_{ij} = \frac{z_{ij}-\bar{\mathbf{z}}_j}{s.e.(\mathbf{z}_j)}, 
+    \qquad i \in \mathcal{G}, \qquad j\in\mathcal{C},
+\end{equation*}
+where $\mathbf{z}_j$ is the j-th column of $Z$.
+
+Usually, in a PCA of microarray data, the 
+first principal component will mainly explain overall gene expression and 
+the second one will mainly explain differential expression between 
+conditions. However, in order to perform multiple tests regarding genetic 
+differential expression, we need new components that exactly capture the 
+genes' overall and differential expression levels. We call these components 
+\emph{artificial} because they do not arise naturally from solving a 
+maximization problem as do the principal components in a PCA. Instead, 
+they are constructed deliberately to capture specific features of the data 
+and, thus, have an exact interpretation. Their construction is as follows. 
+
+For $i=1,\,\ldots,\, n$, let the overall, the treatment and the control 
+means for gene $i$ be
+\begin{equation*}
+    \bar{\mathbf{x}}_{i\cdot} = \frac{1}{p}\sum_{j=1}^{p} x_{ij}, \quad
+    \bar{\mathbf{x}}_{i Tr} = \frac{1}{p_1}\sum_{j=1}^{p_1} x_{ij}, 
+    \quad \bar{\mathbf{x}}_{i C} = \frac{1}{p_2}\sum_{j=p_1+1}^{p} x_{ij},
+\end{equation*}
+for $p_1$ treatment and $p_2$ control replicates with $p=p_1+p_2$. Define
+\begin{align}\label{Eq_psi}
+\begin{split}
+    \psi_{1}(\mathbf{x}_{i\cdot}) &= \psi_{1i} = \sqrt{p} \times 
+    \bar{\mathbf{x}}_{i\cdot},  \\
+    \psi_{2}(\mathbf{x}_{i\cdot}) &= \psi_{2i} = 
+    \dfrac{\sqrt{p_1 p_2}}{\sqrt{p_1 + p_2}} \left(\bar{\mathbf{x}}_{i Tr}
+    - \bar{\mathbf{x}}_{i C}\right).
+\end{split}
+\end{align}
+Now, $\psi_{1i}$ is proportional to the mean expression level of gene $i$ 
+across both conditions, so it captures its overall expression level. Because 
+the data has not been standardized by rows, $\psi_{1i} > \psi_{1i'}$ implies 
+that gene $i$ has a higher overall expression level than gene $i'$ and, thus, 
+$\boldsymbol{\psi}_1=(\psi_{11},\, \ldots,\, \psi_{1n})$ provides a natural 
+scale for comparing expression levels between the genes in the experiment. 
+In PCA's vocabulary \citep{lebart1995}, $\boldsymbol{\psi}_1$ is a 
+\emph{size component}.
+
+On the other hand, $\psi_{2i}$ is proportional to the difference between 
+treatment and control mean expression levels, so it captures the amount to 
+which gene $i$ is differentially expressed. We call 
+$\boldsymbol{\psi}_2=(\psi_{21},\, \ldots,\, \psi_{2n})$ a 
+\emph{differential expression component}. Large positive (negative) values 
+of $\psi_2$ indicate high (low) expression levels in the treatment 
+replicates and low (high) expression levels in the control replicates.
+
+The multiplicative constants in (\ref{Eq_psi}) are defined so that 
+$\boldsymbol{\psi}_1$ and $\boldsymbol{\psi}_2$ are the result of an 
+orthogonal projection via unit projection vectors as in the PCA framework. 
+Note that $\boldsymbol{\psi}_1$ and $\boldsymbol{\psi}_2$ can also be 
+computed as:
+\begin{equation}\label{Eq_psi_v}
+    \boldsymbol{\psi}_1 = X\mathbf{v}_1, \qquad \boldsymbol{\psi}_2 
+    = X\mathbf{v}_2,
+\end{equation}
+where $\mathbf{v}_1 = (1,\, \ldots,\, 1)/\sqrt{p}$, 
+$\mathbf{v}_2 = (p_2,\, \cdots,\, p_2,\, -p_1,\, \cdots, - p_1)/
+\sqrt{p_1 p_2 p}$, with $p_1$ positive entries and $p_2$ negative entries, 
+and both $\mathbf{v}_1$ and $\mathbf{v}_2$ are orthogonal and have unit norm. 
+In particular, if 
+$p_1=p_2$, $\mathbf{v}_2 = (1,\, \ldots,\, 1,\, -1,\, \ldots,\, -1)/
+\sqrt{p}$ and $\psi_{2i} = \left(\bar{\mathbf{x}}_{i Tr} 
+- \bar{\mathbf{x}}_{i C}\right)\sqrt{p}/2$.
+
+Finally, interpretation of $\psi_1$ and $\psi_2$ is quite straightforward: 
+large (small) values of $\psi_1$ indicate high (low) overall expression 
+levels; large positive (large negative) values of $\psi_2$ indicate high 
+(low) expression levels only in the treatment replicates. Genes near the 
+horizontal axis in the artificial plane ($\boldsymbol{\psi}_1$ vs 
+$\boldsymbol{\psi}_2$) are those with no differential expression, and genes 
+near the origin have near--average overall expression levels.
+
+\subsection{A word on scale}\label{Sec_2.2}
+As a rule, methods that control the FDR in microarray data 
+\citep{benjamini2001,storey2001,tusher2001} use test statistics of the form
+\begin{equation}\label{EqUnivariateStatistics}
+    s(\mathbf{x}_{i\cdot}) = \frac{\bar{\mathbf{x}}_{iTr} - 
+    \bar{\mathbf{x}}_{iC}}{s.e.(\bar{\mathbf{x}}_{iTr} - 
+    \bar{\mathbf{x}}_{iC}) + c_0},
+\end{equation}
+or monotone functions of $s$ as p-values; 
+$c_0$ being a convenient constant, usually zero.
+However, when dividing by the standard error in 
+(\ref{EqUnivariateStatistics}), we lose the inherent genetic expression 
+scale that lies within the data. Consider the following two biological 
+scenarios for gene expression data:
+
+\noindent \textbf{Biological Scenario 1:} All genes among all replicates 
+have true positive expression levels when the sample is taken. Therefore, 
+the major differences in scale between the genes are due to external sources 
+of variation.
+
+\noindent \textbf{Biological Scenario 2:} Only a small proportion of the 
+genes in each replicate has true positive expression levels when the sample 
+is taken and no systematic sources of variation other than 
+control/treatment effects are present in the experiment. Therefore, the major 
+differences in scale between the genes are due to whether a gene was 
+actively transcribing when the sample was taken.
+
+If Biological Scenario 1 holds, there is no relevant information in the 
+differences between the scales of the rows in the data, and row 
+standardization is in order. If, on the contrary, Biological Scenario 2 
+seems more appropriate, the information contained in the differences between 
+the scales of the rows is relevant for it allows to asses which genes had 
+actual positive expression levels when the sample was taken.
+    
+Also, if Biological Scenario 2 holds, the data for the genes that were not 
+expressing themselves is merely the result of 
+external sources of variation. Those genes, having true zero expression 
+levels in both treatment and control replicates, cannot be classified as 
+being differentially expressed. However, because $n$ is very large and there 
+might be systematic sources of variation (depending on the technology used 
+for obtaining the data), it is very likely that a considerable number of 
+those genes with no expression will be identified as differentially 
+expressed when using statistics of the form (\ref{EqUnivariateStatistics}).
+    
+We strongly believe that the first condition of Biological Scenario 2 is 
+more reasonable in the context of gene expression data. Additionally, there 
+are several methods for normalization of gene expression data that remove 
+systematic sources of variation other than control/treatment effects, 
+without performing any kind of row standardization 
+\citep{dudoit2002,simon2003}. These normalization procedures can be 
+applied beforehand to assure the validity of the technical part of 
+Biological Scenario 2. 
+
+Summing up, row standardization should not be performed, in order to avoid 
+identifying genes with no expression as differentially expressed; 
+this standardization eliminates natural gene differences making all gene 
+expression levels very similar. If a scenario in between seems more likely, 
+Biological Scenario 2 should be favoured.
+
+Finally, it is of paramount importance to be able to asses which of the 
+former biological scenarios is more likely to hold for a given data set. 
+Although a rigorous test is beyond the scope of this work, we propose the 
+following heuristic guidelines based on the results of \citet{acosta2015}:
+
+\begin{table}[!htb] \begin{center} \caption{Heuristic guidelines for 
+assessing the validity of Biological Scenario 2.}\label{Tab_Heuristics} 
+{\renewcommand{\arraystretch}{1.5} \begin{tabular}{|p{13.5cm}|} \hline
+\rule{0pt}{3ex} Biological Scenario 2 is likely to hold if:
+\begin{enumerate}
+\item The ratios $\text{Var}(\boldsymbol{\psi}_2)/\lambda_1 
+\geq 0.25$ and $[\text{Var}(\boldsymbol{\psi_1}) + 
+\text{Var}(\boldsymbol{\psi_2})] /(\lambda_1 + \lambda_2) \geq 0.9$ 
+in at least one time point, where $\lambda_1$ and $\lambda_2$ are 
+the eigenvalues of the first two principal components of $X$ (see 
+inertia ratios, Eq. (\ref{EqPCAInertiatimepoints}), in Section 
+\ref{Sec_2.5.1}).
+\item Only a few genes lie far to the right from the origin in the 
+artificial plane and no genes lie far to the left.
+\item All genes detected as differentially expressed lie to the right 
+of the vertical axis in the artificial plane.
+\end{enumerate}
+Otherwise, Biological Scenario 2 is not likely to hold and univariate 
+oriented methods should be preferred. \\ \hline
+\end{tabular} } \end{center} \end{table}
+
+\subsection{Multiple hypothesis testing}\label{Sec_2.3}
+Lets assume we want to test if a single gene, say gene $i$, is 
+differentially expressed between treatment and control conditions. Now the 
+null hypothesis would be that of no differential expression and we can 
+express it as $H_i:F_{iTr}=F_{iC}$ versus an alternative hypothesis $K_i: 
+t(F_{iTr}) \neq t(F_{iC})$, $F_{iTr}$ and $F_{iC}$ being the cumulative 
+probability distributions for gene $i$ in treatment and control groups, 
+respectively. Naturally, differences in the parameter $t(F)$ are supposed to 
+imply differential expression.
+    
+Let $s(\mathbf{X}_{i\cdot})$ be a statistic with realization $s(\mathbf{x}
+_{i\cdot})$ and cumulative distribution function $G_i$, for which large 
+values imply strong evidence against $H_i$ and in favour of $K_i$. Also, let 
+$\delta_t$ be a decision rule such that
+
+\begin{equation*}
+\delta_t(\mathbf{x}_{i\cdot})=\left\{ \begin{array}{ll}
+    1, & s(\mathbf{x}_{i\cdot}) \geq t \  \longrightarrow \ 
+    \text{We reject } H_i, \\
+    0, & s(\mathbf{x}_{i\cdot}) < t \  \longrightarrow \  
+    \text{We don't reject } H_i.\\
+\end{array}\right.
+\end{equation*}
+    
+As usual, a Type I Error consists in rejecting $H_i$ when it is true, and a 
+Type II Error consists in not rejecting $H_i$ when $K_i$ is true. Finally, 
+the significance of the test using $\delta_t$ is
+\begin{equation*}
+    \alpha_t = P(\text{``Type I Error''}) = P_{H_i}\left(s\left(
+    \mathbf{X}_{i\cdot}\right)\geq t\right) = 1 - G_{H_i}(t),
+\end{equation*}
+where $P_{H_i}$ refers to the probability measure in 
+$\left(\Omega, \mathcal{F}\right)$ and $G_{H_i}$ to the cumulative 
+distribution function of $s(\mathbf{X}_{i\cdot})$ when $H_i$ is true. 
+In the single hypothesis paradigm, one fixates a desired 
+significance level $\alpha^*$ and chooses 
+$t$ so that $\alpha_t\leq \alpha^*$.
+    
+When detecting differentially expressed genes, we deal with testing $H_1,\, 
+\ldots,\, H_n$ simultaneously. Now, for fixed $t$ and rejection region 
+$[t,\infty)$, let $\mathcal{R}_t=\{i\in\mathcal{G}: 
+s(\mathbf{X}_{i\cdot})\geq t\}$, with cardinality $R(t)=R$, be the set of 
+genes for which the null hypothesis is rejected, and let 
+$\mathcal{V}_t=\{i\in\mathcal{G}: s(\mathbf{X}_{i\cdot})\geq t, \ H_i \ 
+\text{is true}\}=\mathcal{R}_t \cap \mathcal{H}$, with cardinality $V(t)=V$, 
+be the set of false positives, that is, the set of genes for which the null 
+hypothesis is rejected despite being true. Note that $R$ and $V$ are random 
+variables with realizations $r=\#\{i\in\mathcal{G}: s(\mathbf{x}_{i\cdot})
+\geq t\}$ and $v=\#\{i\in\mathcal{G}: s(\mathbf{x}_{i\cdot})\geq t, \ H_i \ 
+\text{is true}\}$, respectively. The possible outcomes of testing $H_1,\, 
+\ldots,\, H_n$ for fixed $t$ are depicted in Table \ref{TabMultTest}. Here, 
+$W=n-R$ and $U = n_0 - V$.
+
+\begin{table}[!htb] \begin{center}
+\caption{Possible outcomes when testing $n$ hypothesis simultaneously.}
+\label{TabMultTest}
+{\begin{tabular}{lccc}\hline
+Hypothesis & Accept & Reject & Total \\ \hline
+Null true & $U$ & $V$ & $n_0$ \\
+Alternative true & $W-U$ & $R-V$ & $n - n_0$ \\
+Total & $W$ & $R$ & $n$ \\ \hline \hline
+\end{tabular}} \\
+Adapted from \citet{storey2002}.
+\end{center} \end{table}
+
+Now, the ideal (though generally unattainable) outcome in multiple 
+hypothesis tests is $W\equiv U$ and $V\equiv 0$, so that all the true 
+alternative hypothesis are detected (no Type II Errors) and no true null 
+hypothesis are rejected (no Type I Errors). When detecting differentially 
+expressed genes, one is more concerned with false positives, and, hence, 
+priority is given to control of Type I Errors. However, Type II Error 
+reduction may then be achieved by a judicious choice of the test 
+statistic (see \citealp[p. 211]{efron1994}).
+
+\subsubsection{False Discovery Rate}
+\citet{benjamini1995} defined the \emph{false discovery rate} (FDR) as the 
+expected proportion of falsely rejected null hypothesis in the previous 
+setup. For this, define the random variable $Q=V/R$ if $R>0$ and $Q=0$ 
+otherwise. Then, the $FDR$ is defined as
+\begin{equation*}
+    FDR = E(Q) =  E\left(\left.\frac{V}{R}\right|R>0\right)P(R>0),
+\end{equation*}
+where the expectation is taken under the true distribution $P$ instead of 
+the complete null distribution $P_H$, where $H:$ all null hypothesis are 
+true. Two important properties arise from this definition 
+\citep{benjamini1995}:
+\begin{enumerate}
+    \item If $H$ is true, then $FDR$ equals the family wise error rate 
+    $(FWER)$. In this case, $V=R$ so $FDR=E(1)P(R>0)=P(V\geq 1)=FWER$.
+    \item If $H$ is not true (not all null hypothesis are true), then 
+    $FDR \leq FWER$. In this case $V \leq R$ so $I\{V\geq 1\} \geq Q$. 
+    Taking expectations on both sides, we get 
+    $FWER = P(V\geq 1) \geq E(Q)=FDR$.
+\end{enumerate}
+In general, then, $FDR\leq FWER$, so while controlling the $FWER$ 
+amounts to controlling the $FDR$, the opposite is not true. Then, 
+controlling only the $FDR$ results in less strict procedures and 
+increased power \citep{benjamini1995}.
+
+\subsection{Single time point analysis}\label{Sec_2.4}
+Our method for identifying differentially expressed genes 
+for a single time point, embeded in the \code{stp} function of \pkg{acde},
+consists of a specific application of \citet{storey2001}'s methodology, 
+using a statistic that is well suited for gene expression data when 
+Biological Scenario 2 holds. It is based on the large 
+sample estimator for the $FDR$, $\hat{Q}_\lambda(t)$, presented in 
+\citet{storey2001} for multiple testing procedures, but uses $|
+\psi_2(\mathbf{X}_{i\cdot})|$ as the test statistic. Our method is 
+presented in Algorithm 1.
+
+\begin{table*}[!htb] \begin{center} \label{AlgDiffExprIden}
+\textbf{Algorithm 1:} Identification of differentially expressed genes 
+for a single time point. \\
+{\renewcommand{\arraystretch}{1.3} 
+\begin{tabular}{|@{\ \ } ll @{\ } p{12.1cm} @{\ \ }|} \hline
+1. & \multicolumn{2}{p{12.5cm}|}{Compute $\psi_{2i} = \psi_2 (\mathbf{x}_{i
+\cdot})$ for $i=1,\, \ldots,\, n$ from (\ref{Eq_psi}).} \\
+2. & \multicolumn{2}{p{12.5cm}|}{For each $t$ in $\mathcal{T}=\{|\psi_{21}|,
+\, \ldots,\, |\psi_{2n}|\}$ and $B$ large enough, compute $\hat{Q}_{\lambda}
+(t)$ as in \citet[p. 6]{storey2001} with $\lambda=0.5$ and using the test 
+statistic $s(\cdot)=|\psi_2(\cdot)|$ from (\ref{Eq_psi}). That is:} \\
+& 2.1. & Compute $B$ bootstrap or permutation replications of $s(\mathbf{x}
+_{1\cdot}),\,\ldots,\, s(\mathbf{x}_{n\cdot})$, obtaining $s_{1b}^*,\, 
+\ldots,\, s_{nb}^*$ for $b=1,\, \ldots,\, B$.\\
+& 2.2. & Compute $\hat{E}_H(R(t))$ as
+\begin{equation*}
+    \hat{E}_H(R(t)) = \frac{1}{B}\sum_{b=1}^{B} r_{b}^*(t),
+\end{equation*}
+where $r_{b}^*(t) = \#\{s_{ib}^*\geq t: i=1,\, \ldots,\, n\}$. \\
+& 2.3. & Set $[t_\lambda,\infty)$ as rejection region with $t_\lambda$ as 
+the $(1-\lambda)$-th percentile of the bootstrap or permutation replications 
+of step 1. Estimate $\pi_0=n_0/n$ by
+\begin{equation*}
+    \hat{\pi}_0(\lambda) = \frac{w(t_\lambda)}{n(1-\lambda)},
+\end{equation*}
+where $w(t_\lambda)=\#\{s(\mathbf{x}_{i\cdot}) < t_\lambda : i=1,\, \ldots,
+\, n\}$. \\
+& 2.4. & Estimate $FDR_\lambda(t)$ as
+\begin{equation*}
+    \hat{Q}_\lambda (t) = \frac{\hat{\pi_0} \hat{E}_H(R(t))}{r(t)},
+\end{equation*}
+where $r(t)=\#\{s(\mathbf{x}_{i\cdot}) \geq t : i=1,\, \ldots,\, n\}$.\\
+
+3. & \multicolumn{2}{p{12.5cm}|}{Set a desired $FDR$ level $\alpha$ and 
+compute $t^* = \inf \left\{t \in\mathcal{T}: \hat{Q}_{0.5} (t) \leq \alpha
+\right\}$.}\\
+4. & \multicolumn{2}{p{12.5cm}|}{Idenfity the set of differentially 
+expressed genes as:} \\
+& \multicolumn{2}{c|}{\rule{0pt}{3.5ex}$\mathcal{R}_{t^*} = \left\{i: |
+\psi_2(\mathbf{x}_{i\cdot})| \geq t^*\right\}.$} \\
+\rule{0pt}{4ex} & \multicolumn{2}{p{12.5cm}|}{The down-regulated and up-
+regulated sets of genes are:} \\
+& \multicolumn{2}{c|}{\rule{0pt}{3.5ex}$\mathcal{D}_{t^*} = \left\{i: 
+\psi_2(\mathbf{x}_{i\cdot}) \leq -t^*\right\}, \qquad \mathcal{U}_{t^*} = 
+\left\{i: \psi_2(\mathbf{x}_{i\cdot}) \geq t^*\right\},$} \\
+& \multicolumn{2}{p{12.5cm}|}{respectively.} \\
+5. & \multicolumn{2}{p{12.5cm}|}{Estimate each gene's q-value as in 
+Algorithm 3 (see Section \ref{seqQvalue}).} \\ 
+\hline
+\end{tabular} } \end{center} \end{table*}
+
+Now, there are two distinct approaches in multiple hypothesis testing for 
+controlling the $FDR$: one fixating a desired $FDR$ level and estimating a 
+rejection region, the other fixating a rejection region and estimating its 
+$FDR$. \citet{storey2004} showed that these two approaches are 
+asymptotically equivalent. More specifically, define
+\begin{equation*}
+    t_\alpha (\hat{Q}_\lambda) = \inf \left\{t : \hat{Q}_\lambda(t) \leq 
+    \alpha\right\}, \qquad 0\leq \alpha \leq 1.
+\end{equation*}
+Then, rejecting all null hypothesis with $s(\mathbf{X}_{i\cdot}) \geq t_
+\alpha (\hat{Q}_\lambda)$ amounts to controlling the $FDR$ at level 
+$\alpha$, for $n$ large enough \citep{storey2004}. Consequently, the 
+procedure in Algorithm 1 controls the $FDR$ at level $\alpha^*$.
+
+Finally, the following observations about Algorithm 1 are in order:
+
+\begin{enumerate}
+    \item $\hat{Q}_\lambda(t)$ is conservatively biased, i.e., 
+    $E[\hat{Q}_\lambda(t)]\geq FDR$ \citep{storey2001}.
+    \item We only estimate the $FDR$ for $t\in\mathcal{T}$ because those are 
+    the values of $t$ for which the number of rejected hypothesis actually 
+    changes. More specifically, let $t_{[1]}, \ldots, t_{[n]}$ be the 
+    ordered values of $\mathcal{T}$. Then, using $[t_{[k]}, \infty)$ as the 
+    rejection region,  produces $k$ genes identified as differentially 
+    expressed, for $k=1,\, \ldots,\, n$.    
+    \item For computational ease, we set $\lambda=0.5$, following 
+    \citet{storey2004}, \citet{taylor2005} and \citet{li2013}. However, a 
+    more suitable $\lambda$ in terms of the Mean Square Error of $\hat{Q}_
+    \lambda (t)$ can be computed via bootstrap methods as shown in 
+    \citet[Section 6]{storey2001}.    
+    \item The estimation of $\hat{Q}_{0.5}(t)$ in step 2 may be done by 
+    using permutation or bootstrap estimates of the statistics' null 
+    distribution \citep{dudoit2008}. Though permutation methods are more 
+    popular \citep{li2013}, we favor bootstrap estimates of the null 
+    distribution for ease of interpretation \cite[p. 65]{dudoit2008}. In any 
+    case, for large $B$, the results should be very similar 
+    \citep{efron1994}.\label{Obs4}
+    \item $B=100$ should be enough for obtaining accurate and stable 
+    estimates of the FDR in step 2 \citep{efron1994}. However, depending on 
+    the data and the shape of the FDR, small changes in the estimated FDR 
+    may produce large changes in $t^*$ and, hence, a much larger value of 
+    $B$ may be needed to guarantee stability of the groups of up and 
+    down regulated genes.
+\end{enumerate}
+
+\subsubsection{Further assessments}
+As $B$, $n$ and $p$ grow, $\hat{Q}_\lambda$ approaches from above both the 
+$FDR$ and the actual or realized proportion of false positives among all 
+rejected null 
+hypothesis \citep{storey2001}. In practice, however, because $B$, $n$ and 
+$p$ are finite, the control achieved using $\hat{Q}_\lambda$ is only 
+approximate and, so, additional assessments are needed.
+
+\citet{storey2001} suggested the use of a bootstrap percentile confidence 
+upper bound for the $FDR$ to provide a somewhat more precise notion of the 
+actual control achieved, but concluded that percentile upper bounds were not 
+appropriate as they under estimated the actual confidence upper bound. We 
+overcome this limitation by computing a \emph{bias-corrected and acceleerated}
+(BCa) upper confidence bound 
+\citep{efron1994} for the $FDR$ as shown in Algorithm 2. We find plots of 
+$\hat{Q}_\lambda(t)$ and the $FDR$'s upper confidence bound vs. $t$ to be 
+very informative as to the actual $FDR$ control achieved.
+
+\begin{table*}[!htb] \begin{center}
+\label{AlgBCa}
+\textbf{Algorithm 2:} Computation of a BCa upper confidence bound for the 
+$FDR$.
+{\renewcommand{\arraystretch}{1.3} 
+\begin{tabular}{|@{\ \ } l @{\ \ } l @{\ \ } p{11.5cm} @{\ \ }|} \hline
+1. && Compute $\hat{Q}_\lambda$ by applying steps 1 and 2 of Algorithm 1. \\
+2. && Compute a large number $R$ of independent bootstrap samples from $X$, 
+$X^*_1,\, \ldots,\, X^*_R$, where $X^*_r=(\mathbf{x}_{\cdot j_1},\, \ldots,
+\, \mathbf{x}_{\cdot j_{p_1}},\, \mathbf{x}_{\cdot k_1},\, \ldots,\, 
+\mathbf{x}_{\cdot k_{p_2}})$, with $(j_1,\, \ldots,\, j_{p_1})$ being a 
+random sample with replacement from $\{1,\, \ldots,\, p_1\}$ and $(k_1,\, 
+\ldots,\, k_{p_2})$ being a random sample with replacement from $\{p_1+1,\, 
+\ldots,\, p\}$. \\
+
+3. && Compute bootstrap replicates of $\hat{Q}_\lambda$, $\hat{Q}^{*(1)}_
+\lambda,\, \ldots,\, \hat{Q}^{*(R)}_\lambda$, by applying steps 1 and 2 of 
+Algorithm 1 to $X^*_r,\, r=1,\, \ldots,\, R$, using the set $\mathcal{T}$ 
+from step 1. \\
+
+4. && For each $t$ in $\mathcal{T}$ and the desired confidence level 
+$\gamma$: \\
+    & 4.1 & Compute $z_0(t)$ as
+    \begin{equation*}
+    z_0(t) = \Phi^{-1}\left(\frac{\#\{\hat{Q}^{*(r)}_\lambda(t) < \hat{Q}_
+    \lambda (t)\}}{R}\right)
+    \end{equation*} \\
+    & 4.2 & Compute $\hat{a}(t)$ as
+\begin{equation*}
+    \hat{a}(t) = \frac{\sum_{j=1}^p [\hat{Q}_{jack}(t) - 
+    \hat{Q}_{(j)}(t)]^3}{6 \{\sum_{j=1}^p [\hat{Q}_{jack}(t) - 
+    \hat{Q}_{(j)}(t)]^2\}^{3/2}},
+\end{equation*}
+    where $\hat{Q}_{(j)}(t)$ is the mean of the bootstrap replicates 
+    $\hat{Q}^{*(r)}_\lambda(t)$ for which the bootstrap indexes 
+    $(j_1,\, \ldots,\, j_{p_1}, k_1,\, \ldots,\, k_{p_2})$ in step 2 do not 
+    contain $j$, and $\hat{Q}_{jack}(t)$ is just $p^{-1}\sum_{j=1}^{p} 
+    \hat{Q}_{(j)}(t)$.\\
+
+& 4.3 & Compute the upper $\gamma$ confidence bound for the $FDR$ as 
+\citep{efron1994}:
+\begin{equation*}
+Q_t[\gamma] = \tilde{G}_t^{-1}\left(\Phi\left[z_0(t) + \frac{z_0(t) + 
+z_{\gamma}}{1 - \hat{a}(t)\left(z_0(t) + z_{\gamma}\right)}\right]\right),
+\end{equation*}
+where $\tilde{G}_t$ is the empirical cumulative distribution function of 
+$\hat{Q}^{*(1)}_\lambda(t),\, \ldots,\, \hat{Q}^{*(R)}_\lambda(t)$, and 
+$z_\gamma$ is the $\gamma$ percentile of a standard normal distribution.
+    \\ \hline
+\end{tabular} } \end{center} \end{table*}
+Now, technically, $Q_t[\gamma]$ is a BCa upper $\gamma$ confidence 
+bound for $E[\hat{Q}_\lambda (t)]\geq FDR(t)$. 
+Because $\hat{Q}_\lambda (t)$ is 
+conservatively biased, $Q_t[\gamma]$ is a $\gamma^*$ confidence upper bound 
+for $FDR(t)$ with $\gamma^* \geq \gamma$, and we say that $Q_t[\gamma]$ 
+is a \emph{conservative} $\gamma$ confidence upper bound for $FDR(t)$. 
+Moreover, if $n$ is large, $FDR\approx v/\max\{1,r\}$, so $Q_t[\gamma]$ 
+is also a conservative $\gamma$ confidence upper bound for the actual 
+proportion of false positives \citep{storey2001}.
+
+Still, $Q_t[\gamma]$ is only second order accurate \citep{efron1994},  
+that is: $P(E[\hat{Q}_\lambda (t)] \leq Q_t[\gamma])= \gamma + O(p^{-1})$, 
+$Q_t[\gamma]$ being the random variable and $p$ the number of replicates in 
+the experiment. As $p$ is usually small in gene expression data, 
+the approximation error must be kept in mind when analysing both $\hat{Q}_
+\lambda (t)$ and $Q_t [\gamma]$. Fortunately, the fact that 
+$\hat{Q}_\lambda (t)$ and $Q_t [\gamma]$ are conservatively biased 
+compensates, to some extent, this approximation error. Naturally, as $p$ 
+increases, the power of the multiple testing procedure, the precision of 
+$\hat{Q}_\lambda (t)$ and the accuracy of $Q_t[\gamma]$, all improve.
+
+Finally, the following observations about Algorithm 2 are in order:
+
+\begin{enumerate}
+\item In steps 1 and 3, $\hat{Q}_\lambda$ and $\hat{Q}^*_\lambda$ are
+functions of $t$ defined for $t\in\mathcal{T}$, where $\mathcal{T}$ is the 
+set of values for $t$ computed in step 1.
+
+\item In step 2, $X^*_r \sim \tilde{F}$, where $\tilde{F}$ is the empirical 
+distribution of $X$.
+
+\item The number of computations in Algorithm 2 is in the order of $R \times 
+B \times n$ so a compromise must be made between $R$ and $B$ for obtaining 
+comfortable computation times. For accurate bootstrap confidence intervals, 
+$R=1000$ should be enough \citep{efron1994}, so we recommend setting $B=100$ 
+and $R=1000$. As $n$ is usually very large, Algorithm 2 may take require 
+considerable computational effort.
+\end{enumerate}
+
+\newpage
+\subsubsection{The q-value}\label{seqQvalue}
+For an observed statistic $s(\mathbf{x}_{i\cdot})$, the q-value is defined 
+as the minimum $FDR$ that can ocurr when rejecting all hypothesis for which 
+$s(\mathbf{x}_{i'\cdot}) \geq s(\mathbf{x}_{i\cdot}), i'=1,\, \ldots,\, n$  
+\citep{storey2002}. More specifically:
+\begin{equation}\label{EqQValue}
+\text{q-value}(s(\mathbf{x}_{i\cdot})) = 
+\inf_t\{ FDR(t): s(\mathbf{x}_{i\cdot}) \geq t\}.
+\end{equation}
+
+\citet{storey2003a} showed that the q-value can be interpreted as the 
+posterior probability of making a Type I Error when testing $n$ hypothesis 
+with rejection region $[s(\mathbf{x}_{i\cdot}),\infty)$; and so it is the 
+analogue of the p-value when controlling the $FDR$ in multiple hypothesis 
+tests.
+
+As $\hat{Q}_\lambda(t)$ is neither smooth nor necessarily decreasing in $t$, 
+we estimate the q-values following Algorithm 3 adapted from \citet{storey2002}.
+
+\begin{table*}[!htb] \begin{center}
+\label{Alg_q_val}
+\textbf{Algorithm 3:} Estimation of the q-values for testing $n$ hypothesis 
+simultaneously.
+{\renewcommand{\arraystretch}{1.4} 
+\begin{tabular}{|@{\ \ } l @{\ \ } p{11.5cm} @{\ \ }|} \hline
+1. & Let $s_{[1]} \leq s_{[2]} \leq \cdots \leq s_{[n]}$ be the ordered 
+statistics for $s_{[i]}=s(\mathbf{x}_{[i]\cdot})$, for 
+$i=1,\, \ldots,\, n$. \\
+2. & Set $\hat{q}(s_{[1]}) = \hat{Q}_\lambda(s_{[1]})$.  \\
+3. & Set $\hat{q}(s_{[i]}) = \min\{\hat{Q}_\lambda(s_{[i]}),\, 
+\hat{q}(s_{[i-1]})\}$, \ for $i=2,\, \ldots,\, n$. \\ \hline
+\end{tabular} } \\
+{\small Adapted from \citet{storey2002}. }\end{center} \end{table*}
+
+\subsection{Time course analysis}\label{Sec_2.5}
+It is often the case in gene expression data to have samples taken at 
+different time points for analysing the genetical behaviour of the 
+replicates in different stages of the disease or factor of interest. We 
+propose two complementary extensions to the single time point analysis 
+for time course gene expression data. These two approaches are:
+\emph{active vs. supplementary time points} and 
+\emph{groups conformation through time}. For the rest of this 
+section, suppose we have $L$ data sets $X^{(1)},\, \ldots,\, X^{(L)}$ taken 
+at time points $1,\, \ldots,\, L$.
+
+\subsubsection{Active vs. supplementary time points}\label{Sec_2.5.1}
+The first approach consists of supposing that there is a single group of 
+genes that, at some time point, become differentially expressed. The 
+questions of interest, then, become which time point is the more suitable 
+for de\-tec\-ting the group of differentially expressed genes and how do 
+those genes behave through time.
+
+In this setup one would expect that, as time passes, differential expression 
+becomes more acute and easy to identify. However, different experimental 
+conditions may occur between different time points and the signal to noise 
+ratio may be lower in latter time points, so a more quantitative assessment 
+is needed. Presently, we can use inertia ratios as follows.
+
+The amount of information about differential expression at time point $l$ 
+can be measured by the 
+inertia\footnote{According to PCA terminology \citep{lebart1995}.} 
+projected on the differential expression component, 
+$\text{Var}(\boldsymbol{\psi}_2^{(l)})$, where 
+$\boldsymbol{\psi}_2^{(l)}$ is the result of applying (\ref{Eq_psi_v}) to 
+$X^{(l)}$, $l=1,\, \ldots,\, L$. For it to be comparable between time 
+points, we divide it by the maximum inertia that can be captured by a single 
+direction as in PCA, obtaining the inertia ratios:
+\begin{equation}\label{EqPCAInertiatimepoints}
+IR^{(l)} = \frac{\text{Var}[\psi_2^{(l)}]}{\lambda_1^{(l)}}, \qquad 
+l=1,\, \ldots,\, L,
+\end{equation}
+where $\lambda_1^{(l)}$ is the inertia projected onto the first principal 
+component of $X^{(l)}$. Then, the data set that contains more information 
+concerning differential expression, say $X^{(l^*)}$, is the one that 
+maximizes $IR^{(l)}$. We call $l^*$ the \emph{active} time point in the 
+analysis.
+
+Once $l^*$ has been determined, Algorithms 1 and 2 can be applied to data 
+set $X^{(l^*)}$ obtaining the respective groups of up and down regulated 
+genes, $\mathcal{U}^{(l^*)}$ and $\mathcal{D}^{(l^*)}$. Then, plots of $
+\boldsymbol{\psi_1}^{(l)}$ vs. $\boldsymbol{\psi_2}^{(l)}$ can be made for 
+each time point, coloring the genes in each group to see how the 
+differential expression process evolves through time.
+
+\subsubsection{Groups conformation through time}\label{Sec_2.5.2}
+The second approach supposes that there may be different genes with 
+differential expression at different time points. The analysis here consists 
+simply of applying Algorithms 1 and 2 to each data set 
+$X^{(1)},\, \ldots,\, X^{(L)}$ and comparing the groups of up and down 
+regulated genes detected at each time point. Here, 
+$\boldsymbol{\psi_1}^{(l)}$ vs. $\boldsymbol{\psi_2}^{(l)}$ plots are also 
+very useful.
+
+In practice, we have found both approaches to work well and to provide 
+complementary and useful insights. If one expects to have a single group of 
+up regulated and a single group of down regulated genes as the final output 
+of the analysis, we recommend taking $\mathcal{U}^{(l^*)}$ and 
+$\mathcal{D}^{(l^*)}$ from the first approach as reference, and assessing 
+their behaviour through time using the second approach. If one is interested 
+in analysing the changes in the groups of differentially expressed genes 
+through time, the second approach is in order, and the first approach can be 
+used to get an additional idea of the intensity of the differential 
+expression process at each time point via inertia ratios.
+
+\subsection[Data -- Phytophthora infestans]{Data -- \emph{Phytophthora 
+infestans}}\label{Sec_2.6}
+The \pkg{acde} package comes with the \code{phytophthora} data set, taken 
+from the Tomato Expression Database website 
+(\url{http://ted.bti.cornell.edu/}), experiment E022 
+\citep{restrepo2005}\footnote{RNA was extracted from each sample and then 
+hybridized on a cDNA microarray, using the TOM1 chip available at 
+\url{http://ted.bti.cornell.edu}. For more details of the experimental 
+design and conditions of the study, see \citet{cai2013}.}. This data set 
+contains raw measurements of 13440 tomato genes for eight plants inoculated 
+with \emph{Phytophthora infestans} and eight plants mock-inoculated with 
+sterile water at four different time points (0, 12, 36 and 60 hours after 
+inoculation). 
+
+This data set is a list with four matrices of $13440 \times 16$, one for 
+each of the time points in the experiment. A portion of data at 60 hai 
+(\code{phytophthora[[4]]}) is presented in Table \ref{Tab_Data_PI}. 
+
+\begin{table}[!htb] \begin{center} \caption{Data 60 hai from tomato plants 
+inoculated with \textit{P. infestans}.}\label{Tab_Data_PI}
+\begin{tabular}{rrrrrrrrrrrr}\hline
+& \multicolumn{5}{c}{Inoculated (I)} & & \multicolumn{5}{c}{Non-inoculated 
+    (NI)} \\ \cline{2-6} \cline{8-12} \
+    Gene & I1 & I2 & I3 & $\cdots$ & I8 & & NI1 & NI2 & NI3 & $\cdots$ 
+    & NI8 \\ \hline
+    1 & 35 & 30 & 43 & $\cdots$ & 29 & & 34 & 30 & 55 & $\cdots$ & 25 \\
+    2 & 300 & 158 & 159 & $\cdots$ & 82 & & 640 & 602 & 246 & $\cdots$ 
+    & 187 \\
+    3 & 39 & 31 & 37 & $\cdots$ & 27 & & 40 & 31 & 47 & $\cdots$ & 25 \\
+    $\vdots$ & $\vdots$ & $\vdots$ & $\vdots$ & $\ddots$ & $\vdots$ & & 
+    $\vdots$ & $\vdots$ & $\vdots$ & $\ddots$ & $\vdots$ \\
+    13440 & 64 & 49 & 152 & $\cdots$ & 38 & & 58 & 63 & 81 & $\cdots$ & 
+    39 \\\hline \hline
+\end{tabular} \end{center} \end{table}
+
+\newpage
+\section[An R session with acde: detecting differentially expressed genes]{An 
+\proglang{R} session with \pkg{acde}: detecting differentially expressed 
+genes}\label{Sec_3}
+The \pkg{acde} package is designed to identify differentially expressed 
+genes between two conditions (treatment vs control, inoculated vs non-
+inoculated, etc.). All its functionality resides within two functions, 
+\code{stp} and \code{tc}, that perform single time point analysis and time 
+course analysis, respectively. For a correct usage, some care is needed in 
+the organization of the data-related arguments for both functions. 
+
+Here is the code that will be used in the remainder of this work. 
+Before running it, please consider that it may require a considerable 
+time (see Appendix \ref{Ap_3}). For a quick run, set argument 
+\code{BCa} in function \code{stp} to \code{FALSE} in order
+to skip lengthy BCa computations (note that, in this case,
+Figure~\ref{Fig_stpPI} won't have the BCa confidence upper bound).
+
+<<eval=FALSE>>=
+# Analysis of the phytophthora data set with acde
+library(acde)
+@
+<<eval=FALSE>>=
+## Single time point analysis (36 hai)
+dat <- phytophthora[[3]]
+des <- c(rep(1,8), rep(2,8))
+### For a quick run, set BCa=FALSE
+stpPI <- stp(dat, des, BCa=TRUE)
+@
+<<eval=FALSE>>=
+stpPI
+plot(stpPI)
+@
+<<eval=FALSE>>=
+## Time course analysis
+desPI <- vector("list",4)
+for(tp in 1:4) desPI[[tp]] <- c(rep(1,8), rep(2,8))
+tcPI <- tc(phytophthora, desPI)
+@
+<<eval=FALSE>>=
+summary(tcPI)
+tcPI
+plot(tcPI)
+@
+
+In the next sections, we present the usage of the \pkg{acde}
+functionality step by step, explaining the results returned 
+by the various functions in the previous code and 
+interpreting them in terms of genetic differential expression.
+We first describe the use of the \code{stp} function 
+and present a simple example with the \code{phytophthora} data set 
+at 36 hai. Then, we describe and apply the \code{tc} function 
+to the whole time course of the \code{phytophthora} data set. For 
+further details on the internal workings of the package, please 
+refer to the Appendix.
+
+\subsection[Single time point analysis -- function stp]{Single time point 
+analysis -- function \code{stp}}\label{Sec_3.1}
+The function \code{stp} performs the single time point analysis presented 
+in Section \ref{Sec_2.4}. It's main arguments are \code{Z} and 
+\code{design}. These arguments represent the gene expression data to be 
+analysed. The first argument, \code{Z}, is a matrix of $n\times p$ 
+that represents gene expression levels with $n$ genes in the rows and $p$ 
+replicates in the columns, $p_1$ of which correspond to the treatment or 
+the condition of interest (inoculation, presence of disease, etc.) and the 
+rest being control replicates (mock-inoculated, healthy tissue, etc.). The 
+second argument, \code{design}, is a vector of length $p$ with $p_1$ ones 
+indicating the position of the treatment columns in \code{Z}, and twos 
+otherwise.
+
+For performing a single time point analysis of the \code{phytophthora} data 
+set at 36 hai, we use the following code. Note that the first eight columns 
+of \code{phytophthora[[.]]} correspond to treatment replicates, and the 
+remaining eight to control replicates -- which gives the construction of 
+argument \code{des} in this example.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+<<echo=FALSE>>=
+library(acde)
+load("resVignette.rda")
+dat <- phytophthora[[3]]
+des <- c(rep(1,8), rep(2,8))
+@
+<<stpPI, eval=FALSE>>=
+library(acde)
+dat <- phytophthora[[3]]
+des <- c(rep(1,8), rep(2,8))
+stpPI <- stp(dat, des, BCa=TRUE)
+@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In the single time point analysis, the artificial components of the genes, 
+$\boldsymbol{\psi}_1$ and $\boldsymbol{\psi}_2$, are computed via the 
+\code{ac} function (same arguments \code{Z} and \code{design}). 
+Arguments \code{alpha}, 
+\code{lambda} and \code{B} correspond to the respective parameters in 
+Algorithm 1. The argument \code{PER} specifies whether permutation 
+(\code{PER=TRUE}) or bootstrap (\code{PER=FALSE}, the default) replications 
+are to be used in step 2.1 in Algorithm \ref{AlgDiffExprIden} 
+(see observation \ref{Obs4} in page \pageref{Obs4}). 
+Argument \code{th} refers to the set $\mathcal{T}$ of threshold 
+values to be evaluated (the default is as specified in Algorithm 1).
+
+Arguments \code{BCa}, \code{gamma} and \code{R} refer to the parameters of 
+Algorithm 2 for the additional assessments in the single time point 
+analysis. If \code{BCa=TRUE}, a BCa \code{gamma}--confidence upper bound for 
+the FDR is computed. Due to the computational effort required, the default 
+is \code{BCa=FALSE}.
+
+Function \code{stp} returns an object of (S3) class `\code{STP}', which is 
+a list with various components storing the results of the single time point 
+analysis. Of special interest are \code{\$dgenes} (classification of the 
+genes), \code{\$astar} (actual FDR control achieved 
+$\hat{Q}_\lambda (t^*)$), \code{\$tstar} ($t^*$) and \code{\$qvalues}.
+
+Package \pkg{acde} comes with the respective \code{print} and \code{plot} 
+methods for class `\code{STP}'. For printing the basic results of the 
+previous example, just type \code{stpPI}. In this case, 
+\Sexpr{sum(stpPI$dgenes=="up-reg.")}
+genes were identified as up regulated, achieving an FDR of 
+\Sexpr{round(100*stpPI$astar,1)}\%. 
+Note that the BCa 95\% confidence upper bound for the FDR is 
+\Sexpr{round(100*stpPI$bca$cbound[stpPI$th == stpPI$tstar][1],1)}\%,
+so good control is actually achieved\footnote{The item 
+\code{Warnings in BCa computation} in the printed results refers to 
+the number of values in \code{th} for which the function \code{boot.ci} 
+from package \pkg{boot} returned a warning during BCa computations. 
+These can be seen by typing \code{stpPI\$bca\$warnings} or 
+\code{plot(stpPI, WARNINGS=TRUE)}.}. 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Ojo: Sexpr{...} en el pedazo de arriba
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+<<printStp>>=
+stpPI
+@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The instruction \code{plot(stpPI)} produces the two plots shown in Figure 
+\ref{Fig_stpPI}. The top plot shows the estimated FDR as a function of 
+multiple threshold values (with the corresponding BCa confidence upper 
+bounds when argument \code{BCa=TRUE}). 
+The bottom plot shows the differentially expressed genes on the 
+artificial plane ($\boldsymbol{\psi}_1$ vs $\boldsymbol{\psi}_2$). 
+
+Here, the genes' distribution in the plane is consistent with the expected 
+behaviour when Biological Scenario 2 holds (see Table \ref{Tab_Heuristics}). 
+Indeed, most genes are close to 
+the origin and only a small proportion are far towards the right side of 
+the plot, indicating that only a small proportion of the genes were 
+actually expressing themselves when the samples were taken. Note, also, 
+that there are no genes far to the left of the plane.
+
+\begin{figure}[!htb] \begin{center}
+\caption{\code{plot(stpPI)}}\label{Fig_stpPI}
+\begin{tabular}{|c|}
+\hline
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+<<plotStp,echo=FALSE>>=
+golden <- 1.1*(1+sqrt(5))/2
+hi <- 4
+
+pdf("acde-plotStpFDR.pdf", width=golden*hi, height=hi, fonts="Times")
+par(mfrow=c(1,1), mar=c(4, 4, 0.1, 1), las=1, family="Times")
+plot(stpPI, AC=FALSE)
+invisible(dev.off())
+
+pdf("acde-plotStpAC.pdf", width=golden*hi, height=hi, fonts="Times")
+par(mfrow=c(1,1), mar=c(4, 4, 0.1, 1), las=1, family="Times")
+plot(stpPI, FDR=FALSE)
+invisible(dev.off())
+@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\includegraphics{acde-plotStpFDR.pdf} \\ \hline
+\includegraphics{acde-plotStpAC.pdf} \\ \hline 
+\end{tabular}
+\end{center}\end{figure}
+
+\subsection[Time course analysis -- function tc]{Time course analysis -- 
+function \code{tc}}\label{Sec_3.2}
+The function \code{tc} performs the time course analysis presented in 
+Section \ref{Sec_2.5}. The two principal arguments for the 
+\code{tc} function are \code{data} and \code{designs}. These are lists of 
+the same length with the corresponding \code{Z} or \code{design} arguments 
+for function \code{stp} at each time point. In other words, \code{data} and 
+\code{designs} are lists such that typing 
+\code{stp(data[[tp]], designs[[tp]])} 
+performs the single time point analysis for time point \code{tp}. Also, 
+note that time point names are taken from \code{names(data)}. Arguments 
+\code{alpha}, \code{lambda}, \code{B}, \code{PER}, \code{BCa}, \code{gamma} 
+and \code{R} are the same as in the \code{stp} function.
+
+The \code{method} argument specifies which of the \emph{active vs 
+supplementary time points} and \emph{groups conformation through time} 
+approaches are to be performed (the default is both). If the former 
+approach is performed, the default is to select the active time point via 
+inertia ratios as in Section \ref{Sec_2.5}. However, the 
+user may set the active time point via the \code{activeTP} 
+argument.
+
+To perform a time course analysis for the \code{phytophthora} data set, use 
+the following code. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+<<tcPI, eval=FALSE>>=
+desPI <- vector("list",4)
+for(tp in 1:4) desPI[[tp]] <- c(rep(1,8), rep(2,8))
+tcPI <- tc(phytophthora, desPI)
+@
+<<echo=FALSE>>=
+desPI <- vector("list",4)
+for(tp in 1:4) desPI[[tp]] <- c(rep(1,8), rep(2,8))
+@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The \code{tc} function returns an object of (S3) class `\code{TC}', which 
+is a list containing the results from the selected methods in the 
+\code{method} argument. Object \code{\$act} contains the results from 
+the \emph{active vs supplementary time points} approach; 
+Object \code{\$gct} contains the results from the 
+\emph{groups conformation through time} approach.
+
+Package \pkg{acde} comes with the respective \code{print}, \code{plot} and 
+\code{summary} methods for class `\code{TC}'.
+The \code{summary} method is the most concise way of printing a time course 
+analysis' results, as: 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+<<>>=
+summary(tcPI)
+@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Plots of the results from both approaches (via the \code{plot(tcPI)} 
+command) are displayed in Figures \ref{fig_tc1}, \ref{fig_tc2} and 
+\ref{fig_tc3}. We now analyse the results of the time course analysis for 
+the \code{phytohpthora} data set.
+
+\subsubsection{Active vs complementary time points}\label{Sec_3.2.1}
+The results of this approach on the \code{phytophthora} data set are 
+presented in Figure \ref{fig_tc1}. The interpretation is quite 
+straightforward: between 0 and 12 hai, the up regulated genes (green) lie 
+at the origin of the artificial plane so they have low or zero expression 
+levels in all replicates\footnote{Assuming that Biological Scenario 2 
+holds.}. Between 12 and 36 hai, they move towards the top 
+right corner and move even farther between 36 and 60 hai, presenting high 
+expression levels only in the inoculated replicates. This behaviour is 
+consistent with that of defence genes that would normally have low 
+expression levels but become highly expressed as a reaction to the 
+pathogen.
+
+On the other hand, the down regulated genes (red) lie far to the right in 
+the artificial plane and very near to the horizontal axis between 0 and 36 
+hai, so they have high expression levels for both inoculated and non 
+inoculated replicates. Between 36 and 60 hai, the down regulated genes' 
+expression levels drop drastically only in the inoculated replicates. This 
+behaviour is consistent with that of genes associated with primary 
+metabolic functions that would normally have high expression levels but 
+fail to function as a result of the inoculation with the pathogen.
+
+\begin{figure}[!htb] \begin{center}
+\caption{Active vs complementary time points results from 
+\code{plot(tcPI)}.}\label{fig_tc1}
+\begin{tabular}{|c|}\hline
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+<<plotTcPI1, echo=FALSE>>=
+tcAux1 <- tcPI; tcAux1$gct <- "Not computed."
+hi <- 6
+pdf("acde-plotTcPI1.pdf", width=golden*hi, height=hi, fonts="Times")
+par(mfrow=c(1,1), mar=c(4, 4, 0.1, 1), las=1, family="Times")
+plot(tcAux1, iRatios=FALSE, FDR=FALSE)
+invisible(dev.off())
+@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\includegraphics{acde-plotTcPI1.pdf} \\ \hline
+\end{tabular}
+\end{center} \end{figure}
+
+\subsubsection{Groups conformation through time}\label{Sec_3.2.2}
+In Figures \ref{fig_tc2} and \ref{fig_tc3}, we present the estimated FDR 
+and the corresponding groups of up and down regulated genes detected when 
+the single time point analysis is performed for each time point separately. 
+As expected, there are no differentially expressed genes at 0 and 12 hai. 
+At 36 hai, 
+\Sexpr{sum(tcPI$gct[[3]]$dgenes=="up-reg.")}  
+up regulated genes and 
+\Sexpr{sum(tcPI$gct[[3]]$dgenes=="down-reg.")} 
+down regulated genes are identified. At 60 hai, the remaining 
+14
+up regulated and 
+94
+down regulated genes become differentially expressed.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Ojo: Sexpr{...} en el pedazo de arriba
+%% \Sexpr{sum(tcPI$gct[[4]]$dgenes=="up-reg.")
+%% -sum(tcPI$gct[[3]]$dgenes=="up-reg.")}
+%% \Sexpr{sum(tcPI$gct[[4]]$dgenes=="down-reg.")
+%% -sum(tcPI$gct[[3]]$dgenes=="down-reg.")}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage 
+Note that the estimated functions FDR$(t)$ at each time point 
+(Figure \ref{fig_tc2}) are very 
+informative regarding this timeline for the differential expression 
+process (as are the inertia ratios at different timepoints in the
+output from \code{summary(tcPI)} above). 
+At 0 and 12 hai, for example, it is clear that there are no 
+differentially expressed genes to be detected, whereas at 36 and 60 hai it 
+is possible to attain reasonable FDR levels, which indicates the presence 
+of differentially expressed genes.
+
+\begin{figure}[!htb] \begin{center}
+\caption{Groups conformation through time results from 
+\code{plot(tcPI)}. Estimated FDRs.}\label{fig_tc2}
+\begin{tabular}{|c|}\hline
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+<<plotTcPI2, echo=FALSE>>=
+tcAux2 <- tcPI; tcAux2$act <- "Not computed."
+pdf("acde-plotTcPI2.pdf", width=golden*hi, height=hi, fonts="Times")
+par(mfrow=c(1,1), mar=c(4, 4, 0.1, 1), las=1, family="Times")
+plot(tcAux2, iRatios=FALSE, AC=FALSE)
+invisible(dev.off())
+@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\includegraphics{acde-plotTcPI2.pdf} \\ \hline
+\end{tabular}
+\end{center} \end{figure}
+
+\begin{figure}[!htb] \begin{center}
+\caption{Groups conformation through time results from 
+\code{plot(tcPI)}. Artificial components.}\label{fig_tc3}
+\begin{tabular}{|c|}\hline
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+<<plotTcPI3, echo=FALSE>>=
+pdf("acde-plotTcPI3.pdf", width=golden*hi, height=hi, fonts="Times")
+par(mfrow=c(1,1), mar=c(4, 4, 0.1, 1), las=1, family="Times")
+plot(tcAux2, iRatios=FALSE, FDR=FALSE)
+invisible(dev.off())
+@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\includegraphics{acde-plotTcPI3.pdf} \\ \hline
+\end{tabular}
+\end{center} \end{figure}
+
+\newpage
+\subsection{Comparison with other methods}\label{Sec_3.3}
+\citet{cai2013} applied SAM\footnote{Significance Analysis of 
+Microarray, see \citet{tusher2001}.} and a two factor (cultivar 
+and time point) ANOVA to identify differentially expressed genes 
+between the tomato plants in the \code{phytophthora} data set and 
+another near isogenic tomato line (M82). Although their main 
+objectives were different from ours, it is possible to extract the 
+groups of up and down regulated genes only for the 
+\code{phytophthora} data set at 60 hai from their 
+analysis\footnote{Tables S2 and S3, and clusters 1, 2, 5--10 
+from table S1 in \citet{cai2013}.}. We compare their results 
+with our findings in Table \ref{Tab_SAM_PI} and Figure 
+\ref{fig_cai}.
+
+\begin{table}[!htb] \begin{center}
+\caption{Comparison with Cai et al. (2013) for the 
+\code{phytophthora} data set 60 hai.}\label{Tab_SAM_PI}
+\begin{tabular}{l|ccc|c} \hline
+\multicolumn{1}{c|}{\multirow{2}{*}{\pkg{acde}}} & 
+\multicolumn{3}{c|}{\citet{cai2013}} & 
+\multirow{2}{*}{Total} \\ \cline{2-4}
+& Up regulated & Down regulated & No diff. expr. & \\ \hline
+Up regulated & 30 & 0 & 2 & 32 \\
+Down regulated & 0 & 41 & 53 & 94\\
+No diff. expr. & 803 & 1127 & 11384 & 13314  \\ \hline
+Total & 833 & 1168 & 11439 & 13440  \\ \hline \hline
+\end{tabular} 
+\end{center} \end{table}
+
+\begin{figure}[!htb] \begin{center}
+\caption{Results from \citet{cai2013} for the 
+\code{phytophthora} data set 60 hai.}\label{fig_cai}
+\begin{tabular}{|c|}\hline
+\includegraphics{Plot_PI_7.pdf} \\ \hline
+\end{tabular}
+\end{center} \end{figure}
+
+While our method found 2 up regulated and 53 down 
+regulated genes previously unidentified by \citet{cai2013}, 
+they still identified a much larger number of genes. This is 
+a consequence of row standardization as required by ANOVA 
+and SAM and their corresponding univariate point of view 
+(see Section \ref{Sec_2.2}). Indeed, when row 
+standardization is performed, the inherent scale of genetic 
+expression in the data is lost for further analysis.
+
+To see this, note that a very large number of the genes 
+identified by \citet{cai2013} lie very close to the origin 
+of the artificial plane in Figure \ref{fig_cai}, which means 
+that their overall expression levels are very close to the 
+average overall expression level in the experiment. If 
+Biological Scenario 2 holds, this is an important mistake 
+because genes with no expression (those near the origin) 
+are being identified as differentially expressed. Thus, 
+the value of a multivariate point of view and the reason 
+why our method should be preferred when Biological 
+Scenario 2 is more likely to hold.
+
+Finally, the fact that SAM and ANOVA identify more genes 
+as differentially expressed than \pkg{acde} does not imply 
+that they have greater power as a multiple testing procedure. 
+Instead, these discrepancies arise from differences in the 
+biological assumptions that underlie each method (see 
+Section \ref{Sec_2.2}) and the corresponding 
+implied definitions of differential expression.
+
+\section{Conclusions}\label{Sec_4}
+Throughout this work, we presented a multivariate inferential 
+method for the identification of differentially expressed genes 
+in gene expression data and its implementation in the \pkg{acde} 
+package for \proglang{R}. While resting on a very general 
+probabilistic model, 
+the applicability of our method lies upon the key biological 
+and technical assumptions summarized 
+in Biological Scenario 2 from Section \ref{Sec_2.2}. 
+If these assumptions hold, as is generally the case in gene 
+expression data, a multivariate approach is needed in order 
+to avoid identifying non--expressed genes as differentially 
+expressed. Until now, no multivariate inferential approach 
+appropriate for Biological Scenario 2 had been proposed.
+
+Our method is based on the work of \citet{storey2001,storey2003b} for the 
+estimation of the FDR and on the construction of two artificial 
+components that provide useful insights regarding 
+the extent to which Biological Scenario 2 holds and the behaviour 
+of the differential expression process. Also, comparison of 
+inertia ratios and estimated FDRs between different time 
+points proved to be very valuable in this regard.
+
+Additional assessments were proposed in order to gain more 
+statistical assurance with respect to the results obtained 
+with our method. These were the complementary approaches for 
+time course analysis and the computation of a BCa confidence 
+upper bound for the FDR. These additional assessments 
+constitute the final pieces of an integral strategy for 
+the identification of differentially expressed genes.
+
+Our analysis of the \code{phytophthora} data set resulted in 
+32 defence related genes identified as up regulated and 94 
+primary metabolic function related genes identified as down 
+regulated at 60 hai. After comparison with previous results 
+\citep{cai2013}, a large number of genes identified as 
+differentially expressed by more traditional methods lied 
+close to the origin of the artificial plane. It then 
+became clear that when applying methods based upon univariate 
+statistics, genes with true zero expression levels may be 
+wrongly identified as being differentially expressed.
+
+Finally, as a rule, univariate oriented methods will identify 
+much more genes as being differentially expressed. These 
+discrepancies arise from differences in the biological 
+assumptions that underlie each method and the corresponding 
+implied definitions of differential expression. Therefore, 
+these are not indicative of any method's greater power as 
+a multiple testing procedure. Moreover, when the aim of 
+the study is to perform an intervention upon differentially 
+expressed genes, our method may prove very valuable as it 
+prevents it from being done upon genes with no expression 
+whatsoever.
+
+\section{Session Info}\label{Sec_5}
+\begin{itemize}\raggedright
+\item R version 3.2.0 (2015-04-16), \verb|x86_64-apple-darwin13.4.0|
+\item Locale: 
+\verb|en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8|
+\item Base packages: base, datasets, graphics, grDevices, methods, 
+stats, utils
+\item Other packages: BiocInstaller~1.18.1
+\item Loaded via a namespace (and not attached): tools~3.2.0
+\end{itemize}
+
+
+\bibliography{acde}\label{Sec_Ref}
+
+
+\appendix
+\section[Appendix: Technical details in acde]{Appendix: 
+Technical details in \pkg{acde}}\label{Ap}
+
+\subsection[Other functions in acde]{Other functions in 
+\pkg{acde}}\label{Ap_1}
+While the main functionalities of the \pkg{acde} package reside in two 
+functions, \code{stp} and \code{tc}, the package includes several other
+functions for internal use and for additional or preliminary 
+assesments. Following the \emph{Prime Directive} for developping 
+thrustworthy software in \citet{chambers2008}, all functions (internal 
+included) are exported in the namespace of the package and, thus, are 
+directly accessible to the user. Here, we briefly explain this other 
+functions and their role in the computations for the single time point 
+and time course analyses.
+
+The \code{ac} and \code{ac2} functions compute the artificial components of 
+gene expression data and are used by functions \code{tc}, \code{stp}, 
+\code{fdr} and \code{bcaFDR}. Their arguments, \code{Z} and \code{design}, 
+are the same as in the \code{stp} function. As a preliminary analysis, 
+function \code{ac} may be useful for assessing if Biological Scenario 2 
+holds, without the lengthy computations of \code{stp} and \code{tc} 
+functions. A simple way to do this is to verify that the genes' 
+distribution on the artificial plane is consistent with Biological Scenario 
+2 following the heuristic guidelines in \ref{Tab_Heuristics}. To obtain a 
+plot of the artificial plane, just type \code{plot(ac(Z, design))}. 
+Also, the inertia ratio for data set \code{Z} can be directly computed with 
+\code{var(ac2(Z, des)) / eigen(cor(Z))\$values[1]}.
+
+Function \code{fdr} performs step 2 of Algorithm 1 and returns estimates 
+of the FDR and the parameter $\pi_0$. Function \code{bcaFDR} performs 
+steps 2 to 4 in Algorithm 2 to compute the BCa confidence upper bound for 
+the FDR. Both functions are called upon by function \code{stp}. Their 
+arguments are the same as in the \code{stp} function. Note that these 
+functions are for internal use, and, so, do not check for the validity of 
+the arguments they recieve. These verifications are made within the 
+\code{stp} and \code{tc} functions when needed. Finally, the function 
+\code{qval} computes the genes' Q-Values following Algorithm 3. 
+Its arguments are the estimated FDRs (as object \code{\$Q} returned 
+by \code{fdr} or \code{stp}) and the second artificial component 
+(as returned by \code{ac2}).
+
+With this in mind, the \code{tc} function makes calls to the \code{stp} 
+function one or several times (depending on the approach specified in the 
+\code{method} argument) and the \code{stp} function, in turn, makes calls 
+to the \code{ac}, \code{ac2}, \code{fdr}, \code{bcaFDR} and \code{qval} 
+functions as needed.
+
+\subsection{Parallel computation}\label{Ap_2}
+As both \code{stp} and \code{tc} functions use the \code{boot} function 
+(package \pkg{boot}, \citealp{boot}), parallel computation is fairly 
+straight forward for single time point and time course analyses. The 
+argument `\code{...}' in both \code{stp} and \code{tc} functions refers 
+specifically to parallel computation related arguments in the \code{boot} 
+function. A simple setup for computation in two clusters is 
+\code{parallel="multicore", ncpus=2}. For more details regarding parallel 
+computation and possible arguments specification, please refer to the help 
+page of the \code{boot} function in \proglang{R}.
+
+\newpage
+\subsection{Construction of this vignette}\label{Ap_3}
+Because of the lengthy computations for obtaining the BCa confidence upper 
+bound in Figure \ref{Fig_stpPI}, the compilation of the code presented in 
+this document requires considerable time. In order to guarantee confortable 
+installation times, this vignette\footnote{See the \code{acde.Rwd} file in 
+source.} is constructed loading a workspace session from the file 
+\code{resVignette.rda} in the directory \code{acde/vignettes} in the 
+source of the \pkg{acde} package. However, the results can be replicated 
+using the following code for obtaining objects \code{stpPI} and \code{tcPI}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+<<eval=FALSE>>=
+## Object stpPI
+set.seed(73, kind="Mersenne-Twister")
+des <- c(rep(1,8), rep(2,8))
+stpPI <- stp(phytophthora[[3]], desPI[[3]], BCa=TRUE)
+@ 
+<<eval=FALSE>>=
+## Object tcPI
+set.seed(27, kind="Mersenne-Twister")
+desPI <- vector("list",4)
+for(tp in 1:4) desPI[[tp]] <- c(rep(1,8), rep(2,8))
+tcPI <- tc(phytophthora, desPI)
+@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+When running this code with different random seeds, because of 
+the shape of the estimated FDRs (slopes approaching zero as $t$ 
+increases in Figure \ref{fig_tc2}), small changes in its estimates 
+(vertical displacements of the plots) can produce large changes in $t^*$ 
+and, subsequently, in the number of differentially expressed genes 
+identified. While setting $B=100$ is enough for obtaining stable 
+estimates of the FDR, a much larger $B$ is needed in order to obtain 
+stable groups of differentially expressed genes.
+
+\subsection{Future perspectives}\label{Ap_4}
+In future versions of the \pkg{acde} package, we hope to extend the 
+previous analysis to include a version of artificial components similar to 
+the factors obtained from the correspondence analysis framework 
+\citep{lebart1995} instead of 
+PCA, and which may be more suitable when Biological 
+Scenario 1 holds. Meanwhile, please enjoy the package and let us know of
+any comments or suggestions for future improvements!
+
+\end{document}
