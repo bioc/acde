@@ -13,9 +13,9 @@ Description: This package provides a multivariate inferential analysis
         terms of differential genetic expression, to identify
         differentially expressed genes while controlling the false
         discovery rate (FDR). The methods on this package are described
-        in the article “Multivariate Method for Inferential
+        in the article "Multivariate Method for Inferential
         Identification of Differentially Expressed Genes in Gene
-        Expression Experiments” by J. P. Acosta, L. Lopez-Kleine and S.
+        Expression Experiments" by J. P. Acosta, L. Lopez-Kleine and S.
         Restrepo (2015).
 License: GPL-3
 LazyData: yes
