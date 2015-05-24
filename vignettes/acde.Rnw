@@ -185,7 +185,8 @@ set (included in \pkg{acde}) from \citet{restrepo2005}.
 \subsection{Artificial components for differential 
 expression}\label{Sec_2.1}
 Let $Z$ represent a $n\times p$ matrix where the rows correspond to the 
-genes and the columns to the replicates in a gene expression data set. Also, 
+genes and the columns to the replicates in a gene expression data set, 
+$z_{ij}$ representing gene $i$ expression level in replicate $j$. Also, 
 let $\mathcal{C}$ be the columns and $\mathcal{G}$ be the rows of $Z$, genes 
 in $\mathcal{G}$ being treated as the individuals of the analysis. We first 
 standardize $Z$ with respect to its column's means and variances for 
