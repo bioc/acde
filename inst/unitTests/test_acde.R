@@ -47,8 +47,8 @@ test_stp <- function ()
 {
     # Correct cases
     ## First gene up-reg., second down-reg.
-    Z <- matrix(runif(100), 10, 10); Z[1,1:5] <- 10; Z[2,6:10] <- 10
-    des <- c(rep(1,5), rep(2,5))
+    Z <- matrix(runif(100), 10, 20); Z[1,1:10] <- 10; Z[2,11:20] <- 10
+    des <- c(rep(1,10), rep(2,10))
     res <- stp(Z, des)
     checkEqualsNumeric(table(res$dgenes), c(1,8,1))
     checkTrue(res$astar <= 0.05)
