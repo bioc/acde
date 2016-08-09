@@ -2,6 +2,10 @@
 
 ## Imports
 import(boot)
+import(graphics)
+import(stats)
+importFrom("graphics", "abline", "barplot", "legend", "lines", "mtext", "par", "plot", "points", "polygon")
+importFrom("stats", "addmargins", "cor", "quantile", "var")
 
 ## Exports
 export(stp,tc,ac,ac2,fdr,bcaFDR,qval)
