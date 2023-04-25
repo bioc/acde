@@ -2,7 +2,7 @@ Package: acde
 Type: Package
 Title: Artificial Components Detection of Differentially Expressed
         Genes
-Version: 1.30.0
+Version: 1.31.0
 Date: 2015-02-25
 Author: Juan Pablo Acosta, Liliana Lopez-Kleine
 Maintainer: Juan Pablo Acosta <jpacostar@unal.edu.co>
